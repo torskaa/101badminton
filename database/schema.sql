@@ -27,14 +27,16 @@ CREATE TABLE profiles (
   id            UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   role          TEXT NOT NULL DEFAULT 'staff'
-                CHECK (role IN ('owner', 'admin', 'staff')),
+                CHECK (role IN ('owner', 'admin', 'staff', 'user')),
   display_name  TEXT NOT NULL,
   phone         TEXT,
+  line_user_id  TEXT UNIQUE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_profiles_tenant ON profiles(tenant_id);
+CREATE INDEX idx_profiles_line_user ON profiles(line_user_id);
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 

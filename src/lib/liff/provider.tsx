@@ -77,9 +77,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
 
     initLiff()
 
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
   const loginWithLINE = useCallback(async () => {
@@ -87,22 +85,33 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
 
     if (liff && LIFF_ID) {
       if (!liff.isLoggedIn()) {
-        liff.login({ redirectUri: window.location.origin + '/auth/liff-callback' })
+        liff.login({ redirectUri: window.location.origin + '/liff-callback' })
+      } else {
+        const token = liff.getAccessToken()
+        if (token) {
+          const res = await fetch('/api/auth/line-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ access_token: token }),
+          })
+          if (res.ok) {
+            window.location.reload()
+          }
+        }
       }
       return
     }
 
-    // Fallback: Supabase OAuth redirect
     const supabase = createClient()
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'line' as any,
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
 
-    if (error) {
-      setError(error.message)
+    if (oauthError) {
+      setError(oauthError.message)
     }
   }, [liff])
 

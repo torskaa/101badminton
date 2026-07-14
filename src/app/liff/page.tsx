@@ -23,7 +23,6 @@ export default function LiffEntryPage() {
         const liffModule = await import('@line/liff')
         await liffModule.default.init({ liffId: LIFF_ID as string })
 
-        // Get LINE profile
         if (!liffModule.default.isLoggedIn()) {
           setStatus('กำลังเข้าสู่ระบบ LINE...')
           liffModule.default.login()
@@ -33,22 +32,33 @@ export default function LiffEntryPage() {
         const profile = await liffModule.default.getProfile()
         setStatus(`ยินดีต้อนรับ ${profile.displayName}`)
 
-        // มองหา tenant จาก context
-        // ถ้า LIFF ถูกเปิดจาก venue-specific URL เราจะมี slug อยู่แล้ว
-        // ปกติ LIFF จะเปิดที่ endpoint URL → เรา redirect ไปหน้าสนาม
-        // โดยใช้ LIFF_TENANT_MAP
+        const token = liffModule.default.getAccessToken()
+        if (!token) {
+          setStatus('ไม่สามารถรับ access token ได้')
+          return
+        }
 
-        // Fetch tenant mapping จาก LIFF ID
-        const res = await fetch(`/api/liff/tenant?liffId=${LIFF_ID}`)
-        if (res.ok) {
-          const { slug } = await res.json()
+        const sessionRes = await fetch('/api/auth/line-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ access_token: token }),
+        })
+
+        if (!sessionRes.ok) {
+          const data = await sessionRes.json()
+          setStatus(data.error || 'เกิดข้อผิดพลาด')
+          return
+        }
+
+        const tenantRes = await fetch(`/api/liff/tenant?liffId=${LIFF_ID}`)
+        if (tenantRes.ok) {
+          const { slug } = await tenantRes.json()
           if (slug) {
             router.replace(`/${slug}/book`)
             return
           }
         }
 
-        // Fallback: ถ้าไม่เจอ slug → ไปหน้าเลือกสนาม
         router.replace('/courts')
       } catch (err) {
         setStatus(`เกิดข้อผิดพลาด: ${err instanceof Error ? err.message : 'unknown'}`)
