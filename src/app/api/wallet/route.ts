@@ -36,6 +36,11 @@ const DEMO = {
     { id: '2', type: 'debit', amount: 120, reason: 'booking', reference_id: 'booking-1', created_at: new Date(Date.now() - 86400000).toISOString() },
     { id: '3', type: 'credit', amount: 200, reason: 'topup', reference_id: null, created_at: new Date(Date.now() - 172800000).toISOString() },
   ],
+  topups: [
+    { id: '1', amount: 500, status: 'confirmed', created_at: new Date().toISOString() },
+    { id: '2', amount: 300, status: 'confirmed', created_at: new Date(Date.now() - 172800000).toISOString() },
+    { id: '3', amount: 200, status: 'pending', created_at: new Date(Date.now() - 86400000).toISOString() },
+  ],
 }
 
 async function getAuth(supabase: ReturnType<typeof createServerClient>) {
@@ -72,5 +77,12 @@ export async function GET(_request: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(20)
 
-  return NextResponse.json({ balance, transactions: transactions || [] }, { headers: corsHeaders() })
+  const { data: topups } = await supabase
+    .from('topup_requests')
+    .select('id, amount, status, created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  return NextResponse.json({ balance, transactions: transactions || [], topups: topups || [] }, { headers: corsHeaders() })
 }

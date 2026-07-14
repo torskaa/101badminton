@@ -89,7 +89,17 @@ export default function WalletPage() {
         return res.json()
       })
       .then((json) => {
-        setData(json)
+        setData({
+          balance: json.balance ?? 0,
+          transactions: (json.transactions || []).map((t: any) => ({
+            id: t.id, type: t.type, amount: t.amount,
+            reason: t.reason, date: t.created_at || t.date,
+          })),
+          topups: (json.topups || []).map((tp: any) => ({
+            id: tp.id, amount: tp.amount, status: tp.status,
+            date: tp.created_at || tp.date,
+          })),
+        })
         setLoading(false)
       })
       .catch(() => {
@@ -109,9 +119,19 @@ export default function WalletPage() {
       })
       setTopUpOpen(false)
       setTopUpAmount('')
-      const res = await fetch('/api/wallet')
-      const json = await res.json()
-      setData(json)
+      const res2 = await fetch('/api/wallet')
+      const json2 = await res2.json()
+      setData({
+        balance: json2.balance ?? 0,
+        transactions: (json2.transactions || []).map((tx: any) => ({
+          id: tx.id, type: tx.type, amount: tx.amount,
+          reason: tx.reason, date: tx.created_at || tx.date,
+        })),
+        topups: (json2.topups || []).map((tp: any) => ({
+          id: tp.id, amount: tp.amount, status: tp.status,
+          date: tp.created_at || tp.date,
+        })),
+      })
     } catch {
       // demo fallback
       setTopUpOpen(false)
