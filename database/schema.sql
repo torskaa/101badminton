@@ -8,18 +8,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "btree_gist";  -- ใช้สำหรับ EXCLUDE (prevent overlap booking)
 
 -- ============================================================================
--- UTILITY FUNCTION: ดึง tenant_id ของผู้ใช้ที่ล็อกอินอยู่
--- ใช้ใน RLS policies เพื่อลดโค้ดซ้ำและป้องกัน logic พลาด
--- ============================================================================
-CREATE OR REPLACE FUNCTION get_user_tenant_id()
-RETURNS UUID
-LANGUAGE SQL STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT tenant_id FROM profiles WHERE id = auth.uid();
-$$;
-
--- ============================================================================
 -- 1. TENANTS — เจ้าของสนาม / Venue
 -- ============================================================================
 CREATE TABLE tenants (
@@ -31,15 +19,6 @@ CREATE TABLE tenants (
 );
 
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
-
--- นโยบาย: เฉพาะผู้ใช้ที่เป็นสมาชิกของ tenant นี้เท่านั้นที่ดูข้อมูลได้
-CREATE POLICY tenant_isolation_select ON tenants
-  FOR SELECT
-  USING (id = get_user_tenant_id());
-
-CREATE POLICY tenant_isolation_insert ON tenants
-  FOR INSERT
-  WITH CHECK (true);  -- registration ต้องเปิดให้ insert ได้
 
 -- ============================================================================
 -- 2. PROFILES — ผู้ใช้ในระบบ (ผูกกับ auth.users และ tenant)
@@ -59,12 +38,35 @@ CREATE INDEX idx_profiles_tenant ON profiles(tenant_id);
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- SELECT: เห็นเฉพาะ profiles ใน tenant เดียวกัน
+-- ============================================================================
+-- UTILITY FUNCTION: ดึง tenant_id ของผู้ใช้ที่ล็อกอินอยู่
+-- ใช้ใน RLS policies เพื่อลดโค้ดซ้ำและป้องกัน logic พลาด
+-- ต้องสร้างหลัง profiles table (LANGUAGE plpgsql validates at runtime)
+-- ============================================================================
+CREATE OR REPLACE FUNCTION get_user_tenant_id()
+RETURNS UUID
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN (SELECT tenant_id FROM profiles WHERE id = auth.uid());
+END;
+$$;
+
+-- RLS Policies สำหรับ tenants
+CREATE POLICY tenant_isolation_select ON tenants
+  FOR SELECT
+  USING (id = get_user_tenant_id());
+
+CREATE POLICY tenant_isolation_insert ON tenants
+  FOR INSERT
+  WITH CHECK (true);  -- registration ต้องเปิดให้ insert ได้
+
+-- RLS Policies สำหรับ profiles
 CREATE POLICY profiles_select ON profiles
   FOR SELECT
   USING (tenant_id = get_user_tenant_id());
 
--- INSERT: ผู้ใช้สร้าง profile ของตัวเองเท่านั้น (tenant ต้องตรง)
 CREATE POLICY profiles_insert ON profiles
   FOR INSERT
   WITH CHECK (
@@ -72,13 +74,11 @@ CREATE POLICY profiles_insert ON profiles
     AND tenant_id = get_user_tenant_id()
   );
 
--- UPDATE: แก้ไขได้เฉพาะ profile ของตัวเอง
 CREATE POLICY profiles_update ON profiles
   FOR UPDATE
   USING (id = auth.uid())
   WITH CHECK (id = auth.uid());
 
--- DELETE: เฉพาะ admin/owner เท่านั้น
 CREATE POLICY profiles_delete ON profiles
   FOR DELETE
   USING (
