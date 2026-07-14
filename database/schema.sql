@@ -504,11 +504,12 @@ CREATE TABLE member_tiers (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-INSERT INTO member_tiers (tenant_id, name, min_points, discount_rate, color) VALUES
-  ('00000000-0000-0000-0000-000000000000', 'Bronze', 0, 0, '#CD7F32'),
-  ('00000000-0000-0000-0000-000000000000', 'Silver', 100, 5, '#C0C0C0'),
-  ('00000000-0000-0000-0000-000000000000', 'Gold', 500, 10, '#FFD700'),
-  ('00000000-0000-0000-0000-000000000000', 'Platinum', 2000, 15, '#E5E4E2');
+-- Insert tier templates after creating tenant (run this separately in app or seed script)
+-- INSERT INTO member_tiers (tenant_id, name, min_points, discount_rate, color) VALUES
+--   ('<tenant-uuid>', 'Bronze', 0, 0, '#CD7F32'),
+--   ('<tenant-uuid>', 'Silver', 100, 5, '#C0C0C0'),
+--   ('<tenant-uuid>', 'Gold', 500, 10, '#FFD700'),
+--   ('<tenant-uuid>', 'Platinum', 2000, 15, '#E5E4E2');
 
 ALTER TABLE member_tiers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY mt_select ON member_tiers FOR SELECT USING (tenant_id = get_user_tenant_id());
